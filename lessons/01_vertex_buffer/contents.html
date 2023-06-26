@@ -1,0 +1,71 @@
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <title>WebGL 1.VertexBuffer</title>
+    <link type="text/css" href="../../resources/webgl-tutorials.css" rel="stylesheet" />
+  </head>
+  <body>
+    <div>WebGL Vertex Buffer</div>
+    <canvas id="c"></canvas>
+  </body>
+</html>
+<script src="../../resources/webgl-utils.js"></script>
+<script>
+"use strict";
+
+// 버퍼를 사용하여 GPU로 데이터를 넘길 것임
+// 데이터를 넘기고 나서 삼각형을 실제로 그리는 명령을 호출하는 것을 Draw call이라고 함
+// 삼각형이 어떻게 그려질지 사용자가 구현한 프로그램이 Shader임
+
+// OpenGL(WebGL)은 State Machine과 비슷함. 일반적인 객체 지향 프로그램의 설계와는 다르게,
+// 현재 처리할 데이터를 선택한 후, 현재 실행해야 할 작업을 함수 호출을 통해 처리하는 방식임
+// 간단하게 두 삼각형을 화면에 그리는 의사코드로 설명하면,
+
+// ---객체지향 방식
+// Triangle t1, t2; //삼각형 두 개를 정의
+// Draw(t1); //t1 객체를 전달함으로써 삼각형 1을 그림
+// Draw(t2); //t2 객체를 전달함으로써 삼각형 2를 그림
+
+// ---State Machine 방식
+// Triangle t1, t2; //삼각형 두 개를 정의
+// Activate(t1); //삼각형 1을 처리중인 상태로 설정
+// Draw(); //현재 처리중인 데이터(=삼각형 1)를 화면에 그림
+// Activate(t2); //삼각형 2를 처리중인 상태로 설정
+// Draw(); //현재 처리중인 데이터(=삼각형 2)를 화면에 그림
+
+function main() {
+  // Get A WebGL context
+  var canvas = document.querySelector("#c");
+  var gl = canvas.getContext("webgl2");
+  if (!gl) {
+    return;
+  }
+  
+  //---Modern OpenGL 방식의 그리기---//
+  var positions = [ //삼각형의 2차원 좌표 정보. 현재는 RAM에 데이터가 저장되어 있는 상태
+      -0.5, -0.5,  // (-0.5, -0.5) 좌표에 점 하나
+       0.0,  0.5,  // ( 0.0,  0.5) 좌표에 점 하나
+       0.5, -0.5,  // ( 0.5, -0.5) 좌표에 점 하나
+  ];
+  
+  //---GPU에 데이터를 전달하는 과정---//
+  // 1.데이터를 저장할 버퍼 객체를 만들고, 그 버퍼 객체의 주소를 positionBuffer에 저장
+  var positionBuffer = gl.createBuffer(); 
+  // 2.positionBuffer를 활성화 상태(bind)함. 이때 gl.ARRAY_BUFFER는 버퍼에 배열 형식의 데이터가 저장될 것이라는 것을 의미
+  gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer); 
+  // 3.실제로 GPU에 데이터를 전달하는 bufferData 함수 호출
+  var floatPositions = new Float32Array(positions); //float32 타입 배열로 변환
+  gl.bufferData(gl.ARRAY_BUFFER, 
+        floatPositions, 
+				gl.STATIC_DRAW); //데이터의 변경이 적을 것이라는 의미. 생략해도 무방
+  
+  
+  //---Draw Call---//
+  gl.drawArrays(gl.TRIANGLES,  // 삼각형을 그려라
+				0, //0번째 데이터부터 시작해서 (-0.5, -0.5)
+				3); //3개의 데이터를
+}
+
+main();
+</script>

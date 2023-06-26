@@ -1,0 +1,226 @@
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <title>WebGL 6.Drawing Multiple Objects, Part 2</title>
+    <link type="text/css" href="../../resources/webgl-tutorials.css" rel="stylesheet" />
+  </head>
+  <body>
+    <div>WebGL 6.Drawing Multiple Objects, Part 2</div>
+    <canvas id="c"></canvas>
+    <div id="uiContainer"> <!-- red color를 조정할 수 있는 ui를 추가 -->
+      <div id="ui">
+        <div id="redColor"></div>
+      </div>
+    </div>
+  </body>
+</html>
+<script src="../../resources/webgl-utils.js"></script>
+<script src="../../resources/webgl-lessons-ui.js"></script> <!-- lessons-ui에서 제공하는 헬퍼를 사용하면 손쉽게 ui 추가 가능 -->
+<script>
+"use strict";
+
+var rectangleVertexShaderSource = `#version 300 es
+layout(location=0) in vec4 a_position; 
+
+void main() {
+  gl_Position = a_position;
+}
+`;
+
+var rectangleFragmentShaderSource = `#version 300 es
+precision highp float;
+layout(location=0) out vec4 outColor;
+uniform vec4 u_color; 
+
+void main() {
+  outColor = u_color; 
+}
+`;
+
+var triangleVertexShaderSource = `#version 300 es
+layout(location=0) in vec4 a_position; 
+
+void main() {
+  gl_Position = a_position;
+}
+`;
+
+var triangleFragmentShaderSource = `#version 300 es
+precision highp float;
+layout(location=0) out vec4 outColor;
+
+void main() {
+  outColor = vec4(0.0,1.0,0.0,1.0);  //<--triangle을 위한 shader는 항상 초록색으로 그린다.
+}
+`;
+
+function main() {
+  // Get A WebGL context
+  var canvas = document.querySelector("#c");
+  var gl = canvas.getContext("webgl2");
+  if (!gl) {
+    return;
+  }
+  
+  //--사각형 데이터
+  var rectanglePositions = [ 
+    -0.5, -0.5, //0번 vertex
+     0.5, -0.5, //1번 vertex
+     0.5,  0.5, //2번 vertex
+	  -0.5,  0.5, //3번 vertex
+  ];
+  
+  var rectangleIndices = [
+	  0, 1, 2, //0,1,2번 vertex로 이루어진 삼각형
+	  2, 3, 0, //2,3,0번 vertex로 이루어진 삼각형
+  ];
+  
+  //--삼각형 데이터
+  var trianglePositions = [ 
+     1.0,  0.0, //0번 vertex
+     1.0, -1.0, //1번 vertex
+     0.0,  0.0, //2번 vertex
+  ];
+  
+  var triangleIndices = [
+    0, 1, 2,
+  ];
+
+  //이전 코드에서, 중복 코드 작성을 손쉽게 해결하는 방법 중 하나로, WebGL의 VAO를 사용할 수 있다.
+  //VAO는 Vertex Array Object의 약자로, 준비 작업에 상태를 하나의 객체로 활성화/비활성화 할 수 있도록 한다.
+  //이 때, program은 VAO에 binding되지 않는다는 것에 유의하자.
+  //VAO의 작동 방식을 눈으로 확인하기 위해서는 아래 두 사이트를 참고하자.
+  //https://webgl2fundamentals.org/webgl/lessons/resources/webgl-state-diagram.html?exampleId=triangle#no-help
+  //https://www.youtube.com/watch?v=WMiggUPst-Q
+  
+  //---------사각형 그리기 준비--------------//
+  //VAO를 생성하고 활성화하면 마지막에 vertexAttribPointer 호출을 통해 
+  //vertex정보를 읽는 방법에 따라 VAO에 데이터가 저장되고,
+  //이후에는 개별 버퍼를 바인딩하지 않고 VAO만 바인딩해 데이터를 그릴 수 있다.
+  var vao1 = gl.createVertexArray();
+  gl.bindVertexArray(vao1); //VAO도 생성 후에 바인딩 해야 함에 주의!
+
+  //---GPU에 Vertex 데이터 전달---//
+  var positionBuffer1 = gl.createBuffer(); 
+  gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer1); 
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(rectanglePositions), gl.STATIC_DRAW);
+
+  //---GPU에 Index 데이터 전달---//
+  var indexBuffer1 = gl.createBuffer(); 
+  gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer1); 
+  gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(rectangleIndices), gl.STATIC_DRAW);
+
+  //---Shader Program 생성---//
+  var program1 = webglUtils.createProgramFromSources(gl,	[rectangleVertexShaderSource, rectangleFragmentShaderSource]);
+  gl.useProgram(program1); 
+  
+  //---Shader의 Attribute 읽는방법 알려줌---//
+  gl.enableVertexAttribArray(0); 
+
+  var size = 2;          
+  var type = gl.FLOAT;   
+  var normalize = false; 
+  var stride = 0;        
+  var offset = 0;        
+  gl.vertexAttribPointer(0, size, type, normalize, stride, offset);
+  //---------사각형 그리기 준비 완료--------------//
+  //--비활성화 작업. null로 bindind하면 비활성화 된다.
+  gl.bindVertexArray(null); //삼각형을 위한 VAO를 위해서, VAO도 비활성화 한다. (주의! vao를 나머지 buffer보다 먼저 unbind해야함!)
+  gl.bindBuffer(gl.ARRAY_BUFFER,null);
+  gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,null);
+  gl.useProgram(null);
+
+  //---------삼각형 그리기 준비--------------//
+  var vao2 = gl.createVertexArray();
+  gl.bindVertexArray(vao2);
+
+  //---GPU에 Vertex 데이터 전달---//
+  var positionBuffer2 = gl.createBuffer(); 
+  gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer2); 
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(trianglePositions), gl.STATIC_DRAW);
+
+  //---GPU에 Index 데이터 전달---//
+  var indexBuffer2 = gl.createBuffer(); 
+  gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer2); 
+  gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(triangleIndices), gl.STATIC_DRAW);
+  
+  //---Shader Program 생성---//
+  var program2 = webglUtils.createProgramFromSources(gl,[triangleVertexShaderSource, triangleFragmentShaderSource]);
+  gl.useProgram(program2);  
+  
+  //---Shader의 Attribute 읽는방법 알려줌---//
+  gl.enableVertexAttribArray(0); 
+
+  var size = 2;          
+  var type = gl.FLOAT;   
+  var normalize = false; 
+  var stride = 0;        
+  var offset = 0;        
+  gl.vertexAttribPointer(0, size, type, normalize, stride, offset);
+  //---------삼각형 그리기 준비 완료--------------//
+    
+  //--비활성화 작업. null로 bindind하면 비활성화 된다.
+  gl.bindVertexArray(null); //VAO도 비활성화
+  gl.bindBuffer(gl.ARRAY_BUFFER,null);
+  gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,null);
+  gl.useProgram(null);
+
+  //---UI 셋업
+  var red = 0;
+  //슬라이더가 움직일 때마다, slide에 할당할 콜백함수가 호출됨
+  webglLessonsUI.setupSlider("#redColor", {slide: updateRedColor, min: 0, max: 1, step: 0.1});
+
+  //slide 콜백함수
+  function updateRedColor(event, ui)
+  {
+    red = ui.value; //slide의 현재값을 red 변수에 저장
+	  drawScene(); //화면을 새로 그림
+  }
+
+  //화면을 새로 그리기 위한 명령어들을 모아 함수로 구현하였음
+  function drawScene()
+  {
+    //화면을 새로 그릴 때마다 배경색을 지움. 
+    gl.clearColor(0, 0, 0, 0);
+    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT); //<--이 API의 의미는 추후 설명 예정
+
+    //다시, 중요한 것은 이 부분이다. 이제는 vao1과 vao2에 사각형과 삼각형을 그리기 위한 
+    //vertex 관련 데이터가 저장되어 있으므로,
+	  //개별적으로 버퍼를 활성화하고, 데이터를 읽는 법을 알려줄 필요가 없다!
+	  //단순히 vao만 활성화 한 뒤에 draw call실행하면 된다.
+    
+    //---1. 사각형 그리기 준비
+    gl.bindVertexArray(vao1);
+    gl.useProgram(program1); 
+    //---2. 사각형 그리기(사각형의 경우 ui에서 받은 uniform도 shader에 보내 반영해 주어야 한다.)
+    var location = gl.getUniformLocation(program1, "u_color"); //u_color 변수 위치를 참조
+    gl.uniform4f(location, red, 0.3, 0.8, 1.0); //해당 위치에 red, 0.3, 0.8, 1.0 데이터를 전달
+    var primitiveType = gl.TRIANGLES;
+    var indexcount = 6;
+    var indexoffset = 0
+    gl.drawElements(primitiveType, indexcount, gl.UNSIGNED_SHORT, 0);
+    //---3. 사각형 관련 state 비활성화. 
+    //어차피 스위치는 한번에 하나만 켜지므로 이 부분은 생략하고 삼각형 관련 데이터를 활성화해도 문제는 없지만,
+    //보다 안전한 코드 작성을 위해서는 하는 것이 좋다.
+    gl.bindVertexArray(null);
+    gl.useProgram(null);
+      
+    //---1. 삼각형 그리기 준비
+    gl.bindVertexArray(vao2);
+    gl.useProgram(program2); 
+    //---2. 사각형 그리기(삼각형은 보내야 하는 uniform이 없다.)
+    var primitiveType = gl.TRIANGLES;
+    var indexcount = 3; //삼각형의 index count는 3
+    var indexoffset = 0;
+    gl.drawElements(primitiveType, indexcount, gl.UNSIGNED_SHORT, 0);
+    //---3. 삼각형 관련 state 비활성화. 
+    //어차피 스위치는 한번에 하나만 켜지므로 이 부분은 생략하고 삼각형 관련 데이터를 활성화해도 문제는 없지만,
+    //보다 안전한 코드 작성을 위해서는 하는 것이 좋다.
+    gl.bindVertexArray(null);
+    gl.useProgram(null);
+  }
+}
+
+main();
+</script>
